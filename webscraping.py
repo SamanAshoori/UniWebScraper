@@ -3,16 +3,17 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 import pandas as pd
+import re
 
 # List of URLs to scrape
 main_urls = [
     'https://www.mmu.ac.uk/study/undergraduate/subject/computing',
-    'https://www.mmu.ac.uk/study/undergraduate/subject/engineering',
-    'https://www.mmu.ac.uk/study/undergraduate/subject/accounting-and-finance',
-    'https://www.mmu.ac.uk/study/undergraduate/subject/acting-and-drama',
-    'https://www.mmu.ac.uk/study/undergraduate/subject/architecture',
-    'https://www.mmu.ac.uk/study/undergraduate/subject/art-and-design',
-    'https://www.mmu.ac.uk/study/undergraduate/subject/biology-and-conservation',
+    'https://www.mmu.ac.uk/study/undergraduate/subject/engineering'
+    #'https://www.mmu.ac.uk/study/undergraduate/subject/accounting-and-finance',
+    #'https://www.mmu.ac.uk/study/undergraduate/subject/acting-and-drama',
+    #'https://www.mmu.ac.uk/study/undergraduate/subject/architecture',
+    #'https://www.mmu.ac.uk/study/undergraduate/subject/art-and-design',
+    #'https://www.mmu.ac.uk/study/undergraduate/subject/biology-and-conservation',
 ]
 
 # Set up Chrome options
@@ -28,7 +29,7 @@ service = Service('C:/Users/saman/Documents/chromedriver-win64/chromedriver.exe'
 driver = webdriver.Chrome(service=service, options=chrome_options)
 
 # Create an empty DataFrame with the desired columns and save it to the CSV file
-df = pd.DataFrame(columns=['Course Title', 'Entry Requirements', 'Level of Study'])
+df = pd.DataFrame(columns=['Course Title', 'Entry Requirements', 'Level of Study', 'Modules'])
 df.to_csv('C:/Users/saman/OneDrive/Coding Portfolio/Web Scraper/UniWebScraper/course_data_new.csv', index=False)
 
 for main_url in main_urls:
@@ -39,12 +40,12 @@ for main_url in main_urls:
     course_divs = driver.find_elements(By.CSS_SELECTOR, 'div.u-grid.gap-8.md\\:u-grid-cols-2 div[about]')
 
     # Extract the URLs from the 'about' attribute
-    urls = [div.get_attribute('about') for div in course_divs]
+    course_urls = [div.get_attribute('about') for div in course_divs]
 
-    for url in urls:
+    for course_url in course_urls:
         try:
             # Open the webpage
-            driver.get(url)
+            driver.get(course_url)
 
             # Extract the course title
             course_title = driver.find_element(By.TAG_NAME, 'h1').text.strip()
@@ -56,16 +57,27 @@ for main_url in main_urls:
             grades = first_paragraph[first_paragraph_grades + 7: first_paragraph_grades + 10]  # Extract the grades
 
             # Extract the level of study from the URL
-            level_of_study = url.split('/study/')[1].split('/')[0]
+            level_of_study = course_url.split('/study/')[1].split('/')[0]
             level_of_study_cap = level_of_study.capitalize()
 
-            # Create a DataFrame with the course title, entry requirements, and level of study
-            df = pd.DataFrame({'Course Title': [course_title], 'Entry Requirements': [grades], 'Level of Study': [level_of_study_cap]})
+            # Extract the modules from all years
+            module_elements = driver.find_elements(By.CSS_SELECTOR, 'div.accordian_bar h4')
+            modules = [module.text.strip() for module in module_elements]
+            modules_str = ', '.join(modules)
+
+
+            # Create a DataFrame with the course title, entry requirements, level of study, and modules
+            df = pd.DataFrame({
+                'Course Title': [course_title],
+                'Entry Requirements': [grades],
+                'Level of Study': [level_of_study_cap],
+                'Modules': [modules_str]
+            })
 
             # Append the DataFrame to the CSV file
             df.to_csv('C:/Users/saman/OneDrive/Coding Portfolio/Web Scraper/UniWebScraper/course_data_new.csv', mode='a', index=False, header=False)
         except Exception as e:
-            print(f'Failed to scrape the data for {url}: {e}')
+            print(f'Failed to scrape the data for {course_url}: {e}')
 
 # Close the browser
 driver.quit()
